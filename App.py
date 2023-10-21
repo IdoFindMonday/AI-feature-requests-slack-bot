@@ -10,6 +10,7 @@ from flask import Flask, request
 from pathlib import Path
 from dotenv import load_dotenv
 from openai_module import OpenAIModule
+import Constansts
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -26,25 +27,25 @@ handler = SlackRequestHandler(app)
 
 BOT_ID = app.client.api_call("auth.test")['user_id']
 BOT_MENTION = f"<@{BOT_ID}>"
-CLIENT_MSG_PREFIX = 'client_msg_id'
-ACTIVATION_STR = 'run'
-N_HOURS_PARAM = 'n_hours'
 
 # Initialize the OpenAI module
-openai_module = OpenAIModule(api_key=os.environ.get("OPENAI_API_KEY"))
+openai_module = OpenAIModule(api_key=os.environ.get("OPENAI_API_KEY"),
+                             model_name="gpt-3.5-turbo-instruct")
 
 
-def get_messages_from_last_n_hours(channel_id, n_hours):
+def get_messages_from_last_n_hours(channel_id, start_date, n_hours):
     try:
         # Calculate the timestamp for the start of the last hour
-        last_hour_timestamp = str((datetime.utcnow() - timedelta(hours=n_hours)).timestamp())
+        oldest_timestamp = str((start_date - timedelta(hours=n_hours)).timestamp())
+
         # Call the conversations.history API method
-        result = app.client.conversations_history(channel=channel_id, oldest=last_hour_timestamp)
+        result = app.client.conversations_history(channel=channel_id, oldest=oldest_timestamp)
         # Extract and return the messages
         messages = []
         for message in result["messages"]:
-            if CLIENT_MSG_PREFIX in message.keys():
+            if Constansts.CLIENT_MSG_PREFIX in message.keys():
                 if BOT_MENTION not in message["text"]:
+                    print(message)
                     user_info = app.client.users_info(user=message['user'])
                     user_name = user_info['user']['name']
                     msg_text = message["text"]
@@ -86,29 +87,37 @@ def log_request(logger, body, next):
     return next()
 
 
-@app.event("app_mention")
-def event_test(body, say, logger):
-    text = body['event']['text'].split(f"{BOT_MENTION} ")[1]
-    channel_id = body['event']['channel']
+def run(say, channel_id, text):
+    say("The AI is working on it :robot_face: ... ")
+    channel_info = app.client.conversations_info(channel=channel_id)
+    channel_name = channel_info['channel']['name']
 
-    if ACTIVATION_STR in text:
-        say("The AI is working on it :robot_face: ... ")
-        channel_info = app.client.conversations_info(channel=channel_id)
-        channel_name = channel_info['channel']['name']
+    if Constansts.N_HOURS in text:
+        match = re.search(r'n_hours=(\d+)', text)
+        n_hours = int(match.group(1))
+    else:
+        n_hours = Constansts.DEFAULT_N_HOURS  # default value
 
-        if N_HOURS_PARAM in text:
-            match = re.search(r'n_hours=(\d+)', text)
-            n_hours = int(match.group(1))
-        else:
-            n_hours = 24  # default value
+    start_date = datetime.utcnow()
 
-        # Get messages from the last hour in the specified channel
-        last_messages = get_messages_from_last_n_hours(channel_id=channel_id, n_hours=n_hours)
+    if Constansts.START_DATE in text:
+        match = re.search(r'start_date=(\d{4}-\d{2}-\d{2})', text)
+        if match:
+            start_date = datetime.strptime(match.group(1), '%Y-%m-%d').replace(hour=12, minute=0, second=0)
 
-        current_ts = datetime.utcnow().strftime('%Y-%m-%d-%H_%M')
+    # Get messages from the last hour in the specified channel
+    last_messages = get_messages_from_last_n_hours(channel_id=channel_id,
+                                                   start_date=start_date,
+                                                   n_hours=n_hours)
+
+    if len(last_messages) > 0:
+        start_date_str = start_date.strftime('%Y-%m-%d_%H_%M')
+
+        print('start_date:', start_date)
+        print('start_date_str:', start_date_str)
 
         # generate text file with all the last messages
-        file_name = f'{n_hours}_hours_messages_channel_{channel_name}_{current_ts}'
+        file_name = f'{n_hours}_hours_messages_channel_{channel_name}_{start_date_str}'
         comment = f"Here are the last {n_hours} hours messages:"
 
         last_messages_str = '\n'.join(last_messages)
@@ -117,7 +126,29 @@ def event_test(body, say, logger):
 
         # generate text file with the feature requests
         feature_requests = openai_module.extract_feature_requests(last_messages)
-        say(f"{comment}:\n{feature_requests}")
+        if feature_requests:
+            say(f"\n{feature_requests}")
+        else:
+            say("""Oops! It seems like your request exceeded the maximum token limit.\n""" + \
+                """Please select a smaller time window""")
+    else:
+        say(f"No messages were found in the given timeframe")
+
+
+@app.event("app_mention")
+def event_test(body, say, logger):
+    text = body['event']['text'].split(f"{BOT_MENTION} ")[1]
+    channel_id = body['event']['channel']
+
+    if text == "help":
+        message = Constansts.HELP_MESSAGE.format(Constansts.START_DATE,
+                                                 Constansts.N_HOURS,
+                                                 Constansts.START_DATE,
+                                                 Constansts.DEFAULT_N_HOURS)
+        say(message)
+
+    elif Constansts.ACTIVATION_STR in text:
+        run(say, channel_id, text)
 
 
 @app.event("message")
