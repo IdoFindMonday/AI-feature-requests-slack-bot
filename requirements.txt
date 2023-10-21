@@ -1,0 +1,7 @@
+slack-sdk
+slack-bolt
+pathlib
+python-dotenv
+flask
+slackeventsapi
+openai
