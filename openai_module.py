@@ -5,8 +5,12 @@ import Constansts
 
 
 class OpenAIModule:
-    def __init__(self, api_key, model_name="text-davinci-002"):
-        openai.api_key = api_key
+    def __init__(self, azure_openai_key, azure_openai_endpoint, azure_api_version="2023-05-15",
+                 model_name="text-davinci-003"):
+        openai.api_key = azure_openai_key
+        openai.api_base = azure_openai_endpoint
+        openai.api_type = "azure"
+        openai.api_version = azure_api_version
         self.model_name = model_name
         self.tokenizer = get_encoding("cl100k_base")
         self.max_input_tokens = Constansts.INPUT_MAX_TOKENS

@@ -7,19 +7,18 @@ from slack_bolt.adapter.flask import SlackRequestHandler
 from slack_sdk.errors import SlackApiError
 from datetime import datetime, timedelta
 from flask import Flask, request
-from pathlib import Path
-from dotenv import load_dotenv
 from openai_module import OpenAIModule
 import Constansts
 
 logging.basicConfig(level=logging.DEBUG)
 
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
+azure_openai_key = os.getenv("AZURE_OPENAI_KEY")
+azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+
 
 app = App(
-    token=os.environ.get("SLACK_BOT_TOKEN"),
-    signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
+    token=os.getenv("SLACK_BOT_TOKEN"),
+    signing_secret=os.getenv("SLACK_SIGNING_SECRET"),
 )
 
 flask_app = Flask(__name__)
@@ -29,15 +28,16 @@ BOT_ID = app.client.api_call("auth.test")['user_id']
 BOT_MENTION = f"<@{BOT_ID}>"
 
 # Initialize the OpenAI module
-openai_module = OpenAIModule(api_key=os.environ.get("OPENAI_API_KEY"),
-                             model_name="gpt-3.5-turbo-instruct")
+openai_module = OpenAIModule(azure_openai_key=azure_openai_key,
+                             azure_openai_endpoint=azure_openai_endpoint,
+                             azure_api_version="2023-05-15",
+                             model_name="text-davinci-003")
 
 
 def get_messages_from_last_n_hours(channel_id, start_date, n_hours):
     try:
         # Calculate the timestamp for the start of the last hour
         oldest_timestamp = str((start_date - timedelta(hours=n_hours)).timestamp())
-
         # Call the conversations.history API method
         result = app.client.conversations_history(channel=channel_id, oldest=oldest_timestamp)
         # Extract and return the messages
@@ -45,7 +45,6 @@ def get_messages_from_last_n_hours(channel_id, start_date, n_hours):
         for message in result["messages"]:
             if Constansts.CLIENT_MSG_PREFIX in message.keys():
                 if BOT_MENTION not in message["text"]:
-                    print(message)
                     user_info = app.client.users_info(user=message['user'])
                     user_name = user_info['user']['name']
                     msg_text = message["text"]
@@ -162,4 +161,4 @@ def slack_events():
 
 
 if __name__ == "__main__":
-    app.start(port=int(os.environ.get("PORT")))
+    app.start(port=int(os.getenv("PORT")))
