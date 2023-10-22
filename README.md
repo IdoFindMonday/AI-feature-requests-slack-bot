@@ -32,7 +32,7 @@ PORT=3000  # or your desired port
 1. Run the Flask application:
 
 ```bash
-python App.py
+python app.py
 ```
 
 2. Interact with the Slack Bot by mentioning it in a channel. For example:
