@@ -1,6 +1,6 @@
 # AI-feature-requests-slack-bot
 
-This is a slack bot built to pull all the messages in a given slack chanel, ignore irrelevant messages and use OpenAI api to extract feature request from the pulled messages.
+This is a slack bot built to pull all the messages in a given slack chanel, ignore irrelevant messages and use OpenAI API to extract feature request from the pulled messages.
 In addition to the feature extraction using LLM, the bot will generate and send a .txt file in the channel for further use.
 
 ### Features
@@ -8,6 +8,11 @@ In addition to the feature extraction using LLM, the bot will generate and send 
 - Retrieve messages from a specified time window in a Slack channel.
 - Enable to change the starting date of the pulling to apply changing time-windows.
 - Process messages and generate text files for analysis.
+
+
+### Note
+- This is not a production ready code
+- The current code supports only the Completion API (DEVINCI-003) 
 
 
 ## Getting Started
@@ -32,7 +37,7 @@ PORT=3000  # or your desired port
 1. Run the Flask application:
 
 ```bash
-python app.py
+python main.py
 ```
 
 2. Interact with the Slack Bot by mentioning it in a channel. For example:

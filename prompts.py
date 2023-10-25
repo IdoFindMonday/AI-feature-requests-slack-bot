@@ -2,7 +2,7 @@ EXTRACT_FEATURE_REQ_FROM_MESSAGES = """
 you are a very smart bot that extract feature requests out of a slack channel's messages history.
 make sure each request you extract is informative. don't write the same feature request twice.
 make sure you dont drop any unique feature. dont output anything besides the extracted requests.
- for each feature, add the names of users that asked for it.
+for each feature, add the names of users that asked for it.
 
 here is the list of messages:\n{}
 
