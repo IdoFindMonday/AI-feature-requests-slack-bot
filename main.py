@@ -40,6 +40,8 @@ openai_module = OpenAIModule(azure_openai_key=azure_openai_key,
 
 # handling slack retires while processing the request
 CAN_PROCESS = 1
+# enable to shut-down the bot activity
+ACTIVE_BOT = True
 
 
 def get_messages_from_last_n_hours(channel_id, start_date, n_hours):
@@ -140,6 +142,11 @@ def update_current_proc_state():
     CAN_PROCESS = CAN_PROCESS * -1
 
 
+def update_bot_activity_status(value):
+    global ACTIVE_BOT
+    ACTIVE_BOT = value
+
+
 @slack_events_adapter.on("app_mention")
 def event_test(event_data):
     try:
@@ -154,12 +161,25 @@ def event_test(event_data):
 
             slack_client.chat_postMessage(channel=channel_id, text=message)
 
-        elif Constansts.ACTIVATION_STR in text:
+        elif (Constansts.ACTIVATION_STR in text) & ACTIVE_BOT:
             print("\n\n ******** CURRENTLY_PROCESSING:", CAN_PROCESS)
             if CAN_PROCESS == 1:
                 update_current_proc_state()
                 run(channel_id, text)
                 update_current_proc_state()
+
+        elif text == "--status":
+            slack_client.chat_postMessage(channel=channel_id,
+                                          text=f"Bot active:{ACTIVE_BOT}\ncan_process:{CAN_PROCESS}")
+
+        elif text == "--activate":
+            update_bot_activity_status(True)
+
+        elif text == "--deactivate":
+            update_bot_activity_status(False)
+
+        elif text == "--refresh_can_process":
+            update_current_proc_state()
     except:
         pass
 

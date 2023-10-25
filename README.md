@@ -61,6 +61,12 @@ example:
 @your-bot-name run start_date=2023-09-25 n_hours=7
 ```
 
+3. Debugging & admin commands
+
+If for any reason you need to deactivate the bot, use the `@your-bot-name --deactivate` command.
+This will make the bot not to respond the to run command.
+To activate the bot use `@your-bot-name --activate`.
+To check the current status of the bot use the `@your-bot-name --status` command.
 
 
 
