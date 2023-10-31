@@ -5,7 +5,7 @@ import re
 from slackeventsapi import SlackEventAdapter
 from slack_sdk.errors import SlackApiError
 from datetime import datetime, timedelta
-from flask import Flask, make_response
+from flask import Flask, Response
 from openai_module import OpenAIModule
 from slack_sdk import WebClient
 import Constansts
@@ -40,7 +40,7 @@ openai_module = OpenAIModule(azure_openai_key=azure_openai_key,
 
 # handling slack retires while processing the request
 CAN_PROCESS = 1
-# enable to shut-down the bot activity
+# enable to shut down the bot activity
 ACTIVE_BOT = True
 
 
@@ -63,18 +63,18 @@ def get_messages_from_last_n_hours(channel_id, start_date, n_hours):
         return messages
     except SlackApiError as e:
         print(f"Error: {e.response['error']}")
-        return None
+        return []
 
 
-def generate_txt_file(channel_id, file_name, text, comment):
+def generate_txt_file(user_id, file_name, text, comment):
     # Create an in-memory file-like object
     in_memory_file = io.StringIO()
 
     in_memory_file.write(text)
 
     # Upload the text file to Slack
-    response = slack_client.files_upload_v2(
-        channel=channel_id,
+    response = slack_client.files_upload(
+        channels=user_id,
         content=in_memory_file.getvalue(),
         title=file_name,
         filename=f'{file_name}.txt',
@@ -90,8 +90,8 @@ def generate_txt_file(channel_id, file_name, text, comment):
         print(f"File upload failed: {response['error']}")
 
 
-def run(channel_id, text):
-    slack_client.chat_postMessage(channel=channel_id, text="The AI is working on it :robot_face: ... ")
+def run(channel_id, user_id, text):
+    slack_client.chat_postMessage(channel=user_id, text="Loading... the AI is working on it :robot_face: ... ")
     channel_info = slack_client.conversations_info(channel=channel_id)
     channel_name = channel_info['channel']['name']
 
@@ -121,20 +121,20 @@ def run(channel_id, text):
 
         last_messages_str = '\n'.join(last_messages)
 
-        generate_txt_file(channel_id, file_name, last_messages_str, comment)
+        generate_txt_file(user_id, file_name, last_messages_str, comment)
 
         # generate text file with the feature requests
         feature_requests = openai_module.extract_feature_requests(last_messages)
         if feature_requests:
-            slack_client.chat_postMessage(channel=channel_id,
+            slack_client.chat_postMessage(channel=user_id,
                                           text=f"Here are the extracted feature requests:\n{feature_requests}")
         else:
             message = "Oops! It seems like your request exceeded the maximum token limit.\n" + \
                       "Please select a smaller time window"
-            slack_client.chat_postMessage(channel=channel_id,
+            slack_client.chat_postMessage(channel=user_id,
                                           text=message)
-    else:
-        slack_client.chat_postMessage(channel=channel_id, text=f"No messages were found in the given timeframe")
+    elif last_messages == 0:
+        slack_client.chat_postMessage(channel=user_id, text=f"No messages were found in the given timeframe")
 
 
 def update_current_proc_state():
@@ -149,10 +149,10 @@ def update_bot_activity_status(value):
 
 @slack_events_adapter.on("app_mention")
 def event_test(event_data):
+    user_id = event_data['event']['user']
     try:
         text = event_data['event']['text'].split(f"{BOT_MENTION} ")[1]
         channel_id = event_data['event']['channel']
-
         if text == "help":
             message = Constansts.HELP_MESSAGE.format(Constansts.START_DATE,
                                                      Constansts.N_HOURS,
@@ -162,10 +162,10 @@ def event_test(event_data):
             slack_client.chat_postMessage(channel=channel_id, text=message)
 
         elif (Constansts.ACTIVATION_STR in text) & ACTIVE_BOT:
-            print("\n\n ******** CURRENTLY_PROCESSING:", CAN_PROCESS)
+            print('\n\n\n ------> CAN_PROCESS:', CAN_PROCESS, '\n\n\n')
             if CAN_PROCESS == 1:
                 update_current_proc_state()
-                run(channel_id, text)
+                run(channel_id, user_id, text)
                 update_current_proc_state()
 
         elif text == "--status":
@@ -183,7 +183,8 @@ def event_test(event_data):
     except:
         pass
 
-    return make_response("", 200)
+    print('\n\n Finished app_mention \n\n')
+    return "OK", 200
 
 
 if __name__ == "__main__":

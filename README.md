@@ -1,6 +1,6 @@
 # AI-feature-requests-slack-bot
 
-This is a slack bot built to pull all the messages in a given slack chanel, ignore irrelevant messages and use OpenAI API to extract feature request from the pulled messages.
+This is a slack bot built to pull messages from a given slack channel, ignore irrelevant messages and use OpenAI API to extract feature request from the pulled messages.
 In addition to the feature extraction using LLM, the bot will generate and send a .txt file in the channel for further use.
 
 ### Features
